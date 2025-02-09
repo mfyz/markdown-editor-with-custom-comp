@@ -99,6 +99,32 @@ const ColorButton = () => {
     </Button>
   )
 }
+const ColorButton2 = () => {
+  // grab the insertDirective action (a.k.a. publisher) from the 
+  // state management system of the directivesPlugin
+  const insertDirective = usePublisher(insertDirective$)
+
+  return (
+    <Button
+      onClick={() => {
+        // $createGenericHTMLNode(
+        //     "span",
+        //     "mdxJsxTextElement",
+        //     mdastNode.attributes as MdxJsxAttribute[]
+        //   )
+        // );
+        insertDirective({
+          name: 'color',
+          type: 'textDirective',
+          attributes: { color },
+          children: []
+        })
+      }}
+    >
+      Color
+    </Button>
+  )
+}
 
 function App() {
   const initialContent = `# Heading 1
@@ -112,6 +138,8 @@ Culpa est ad incididunt minim nulla. Ad incididunt minim nulla consequat.
 - List item 2
 - [link](https://link.com)
 
+[link](https://link.com){class=inline-button}
+
 :color[red text]{color=red}
 
 :color[Red text]{color=red} :color[Blue text]{color=#48bbff}
@@ -119,6 +147,10 @@ Culpa est ad incididunt minim nulla. Ad incididunt minim nulla consequat.
 :button[My button]{https://google.com}
 
 Another example: :button[My blue button]{https://google.com color=blue}
+
+Inline html <span style="color: red;">red text inline</span> with  another text.
+
+Inline html button <a href="https://google.com" class="inline-button">button</a> with  another text.
 
 <div style="background: red">
   Content
@@ -172,6 +204,7 @@ End`
                   <CreateLink />
                   <InsertThematicBreak />
                   <ColorButton />
+                  <ColorButton2 />
                 </>
               )
             })
