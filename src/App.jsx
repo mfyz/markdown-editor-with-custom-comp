@@ -17,8 +17,7 @@ import {
   GenericDirectiveEditor,
   Button,
   usePublisher,
-  insertDirective$,
-  NestedLexicalEditor
+  insertDirective$
 } from '@mdxeditor/editor'
 import { useState, useRef, useEffect } from 'react'
 
@@ -60,7 +59,7 @@ const SimpleColorPicker = ({ onSelectColor }) => {
   );
 };
 
-// Simple implementation that renders colored text and allows editing
+// Custom renderer for the color directive
 const ColorDirectiveDescriptor = {
   name: 'color',
   testNode(node) {
@@ -68,18 +67,28 @@ const ColorDirectiveDescriptor = {
   },
   attributes: ['color'],
   hasChildren: true,
-  Editor: (props) => {
+  // This is the key part - we're creating a custom renderer
+  // that just displays the text in the specified color
+  toMarkdown: {
+    enter: (state, node) => {
+      state.write(`:color[${node.children[0].value}]{color=${node.attributes.color}}`)
+    },
+    exit: () => {}
+  },
+  // Custom editor component that allows editing text and changing color
+  Editor: ({ mdastNode, lexicalNode, parentEditor }) => {
     const [showColorPicker, setShowColorPicker] = useState(false);
     const colorPickerRef = useRef(null);
-    const swatchRef = useRef(null);
-    const currentColor = props.mdastNode.attributes.color || 'red';
+    const colorSwatchRef = useRef(null);
+    const currentColor = mdastNode.attributes.color || 'red';
     
     // Close color picker when clicking outside
     useEffect(() => {
       if (!showColorPicker) return;
       
       const handleClickOutside = (event) => {
-        if (colorPickerRef.current && !colorPickerRef.current.contains(event.target)) {
+        if (colorPickerRef.current && !colorPickerRef.current.contains(event.target) &&
+            colorSwatchRef.current && !colorSwatchRef.current.contains(event.target)) {
           setShowColorPicker(false);
         }
       };
@@ -93,35 +102,32 @@ const ColorDirectiveDescriptor = {
     const handleColorChange = (newColor) => {
       console.log('Changing color from', currentColor, 'to', newColor);
       
-      // Update the color attribute in the directive
-      if (props.updateAttributes) {
-        props.updateAttributes({ color: newColor });
-      }
+      // Update the node in the Lexical editor
+      parentEditor.update(() => {
+        lexicalNode.setAttributes({ color: newColor });
+      });
       
       setShowColorPicker(false);
     };
     
-    // Create a color swatch button that appears next to the text
-    const ColorSwatch = () => (
-      <button
-        ref={swatchRef}
-        type="button"
+    // Create a small color swatch that appears at the beginning of the text
+    const renderColorSwatch = () => (
+      <span
+        ref={colorSwatchRef}
         onClick={(e) => {
           e.stopPropagation();
-          console.log('Opening color picker for', props.mdastNode);
-          setShowColorPicker(true);
+          setShowColorPicker(!showColorPicker);
         }}
         style={{
-          width: '16px',
-          height: '16px',
+          display: 'inline-block',
+          width: '8px',
+          height: '8px',
           backgroundColor: currentColor,
           border: '1px solid #ccc',
-          borderRadius: '3px',
+          borderRadius: '50%',
+          marginRight: '3px',
           cursor: 'pointer',
-          padding: 0,
-          marginLeft: '4px',
           verticalAlign: 'middle',
-          display: 'inline-block',
           position: 'relative'
         }}
         title="Change color"
@@ -129,11 +135,11 @@ const ColorDirectiveDescriptor = {
     );
     
     return (
-      <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-        <span style={{ color: currentColor }}>
-          <GenericDirectiveEditor {...props} />
+      <span style={{ position: 'relative', color: currentColor }}>
+        {renderColorSwatch()}
+        <span contentEditable suppressContentEditableWarning>
+          {mdastNode.children[0]?.value || ''}
         </span>
-        <ColorSwatch />
         
         {showColorPicker && (
           <div 
@@ -150,9 +156,9 @@ const ColorDirectiveDescriptor = {
           </div>
         )}
       </span>
-    )
+    );
   }
-}
+};
 
 const ButtonDirectiveDescriptor = {
   name: 'button',
