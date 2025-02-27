@@ -20,37 +20,117 @@ import {
   insertDirective$,
   NestedLexicalEditor
 } from '@mdxeditor/editor'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 import '@mdxeditor/editor/style.css'
 
+// Simple color picker component
+const SimpleColorPicker = ({ onSelectColor }) => {
+  const colors = [
+    'red', 'blue', 'green', 'purple', 'orange', 
+    'pink', 'teal', 'brown', 'gray', 'black'
+  ];
+  
+  return (
+    <div style={{ 
+      padding: '10px', 
+      backgroundColor: 'white', 
+      boxShadow: '0 2px 10px rgba(0,0,0,0.1)', 
+      borderRadius: '4px',
+      width: '150px'
+    }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '5px' }}>
+        {colors.map(color => (
+          <div 
+            key={color}
+            onClick={() => onSelectColor(color)}
+            style={{ 
+              backgroundColor: color, 
+              width: '20px', 
+              height: '20px', 
+              borderRadius: '2px',
+              cursor: 'pointer',
+              border: '1px solid #ddd'
+            }}
+            title={color}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Simple implementation that just renders colored text
 const ColorDirectiveDescriptor = {
   name: 'color',
   testNode(node) {
     return node.name === 'color'
   },
   attributes: ['color'],
-  // used by the generic editor to determine whether or not to render a nested editor.
-  hasChildren: true,
-  // Editor: GenericDirectiveEditor
+  hasChildren: false,
   Editor: (props) => {
+    const [showColorPicker, setShowColorPicker] = useState(false);
+    const colorPickerRef = useRef(null);
+    const currentColor = props.mdastNode.attributes.color;
+    
+    // Close color picker when clicking outside
+    useEffect(() => {
+      if (!showColorPicker) return;
+      
+      const handleClickOutside = (event) => {
+        if (colorPickerRef.current && !colorPickerRef.current.contains(event.target)) {
+          setShowColorPicker(false);
+        }
+      };
+      
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [showColorPicker]);
+    
+    const handleColorChange = (newColor) => {
+      console.log('Changing color from', currentColor, 'to', newColor);
+      
+      // Update the color attribute in the directive
+      if (props.updateAttributes) {
+        props.updateAttributes({ color: newColor });
+      }
+      
+      setShowColorPicker(false);
+    };
+    
     return (
-      <>
+      <div style={{ position: 'relative', display: 'inline-block' }}>
         <span
-          style={{ color: props.mdastNode.attributes.color }}
+          style={{ 
+            color: currentColor,
+            borderBottom: '1px dashed #ccc',
+            cursor: 'pointer'
+          }}
+          onClick={() => {
+            console.log('Opening color picker for', props.mdastNode);
+            setShowColorPicker(true);
+          }}
         >
-          {/* {props.mdastNode.children[0].value} */}
-          <GenericDirectiveEditor {...props}/>
+          {props.mdastNode.children[0].value}
         </span>
         
-        {/* <NestedLexicalEditor
-          block
-          getContent={(node) => node.children}
-          getUpdatedMdastNode={(mdastNode, children) => {
-            return { ...mdastNode, children }
-          }}
-        /> */}
-      </>
+        {showColorPicker && (
+          <div 
+            ref={colorPickerRef}
+            style={{ 
+              position: 'absolute', 
+              top: '100%', 
+              left: '0', 
+              zIndex: 100,
+              marginTop: '5px'
+            }}
+          >
+            <SimpleColorPicker onSelectColor={handleColorChange} />
+          </div>
+        )}
+      </div>
     )
   }
 }
@@ -61,69 +141,8 @@ const ButtonDirectiveDescriptor = {
     return node.name === 'button'
   },
   attributes: [],
-  // used by the generic editor to determine whether or not to render a nested editor.
   hasChildren: true,
   Editor: GenericDirectiveEditor
-  // Editor: (props) => {
-  //   return (
-  //     <div style={{ border: '1px solid red', padding: 8, margin: 8 }}>
-  //       <NestedLexicalEditor
-  //         block
-  //         getContent={(node) => node.children}
-  //         getUpdatedMdastNode={(mdastNode, children) => {
-  //           return { ...mdastNode, children }
-  //         }}
-  //       />
-  //     </div>
-  //   )
-  // }
-}
-
-const ColorButton = () => {
-  // grab the insertDirective action (a.k.a. publisher) from the 
-  // state management system of the directivesPlugin
-  const insertDirective = usePublisher(insertDirective$)
-
-  return (
-    <Button
-      onClick={() => {
-        insertDirective({
-          name: 'color',
-          type: 'textDirective',
-          attributes: { color },
-          children: []
-        })
-      }}
-    >
-      Color
-    </Button>
-  )
-}
-const ColorButton2 = () => {
-  // grab the insertDirective action (a.k.a. publisher) from the 
-  // state management system of the directivesPlugin
-  const insertDirective = usePublisher(insertDirective$)
-
-  return (
-    <Button
-      onClick={() => {
-        // $createGenericHTMLNode(
-        //     "span",
-        //     "mdxJsxTextElement",
-        //     mdastNode.attributes as MdxJsxAttribute[]
-        //   )
-        // );
-        insertDirective({
-          name: 'color',
-          type: 'textDirective',
-          attributes: { color },
-          children: []
-        })
-      }}
-    >
-      Color
-    </Button>
-  )
 }
 
 function App() {
@@ -142,7 +161,7 @@ Culpa est ad incididunt minim nulla. Ad incididunt minim nulla consequat.
 
 :color[red text]{color=red}
 
-:color[Red text]{color=red} :color[Blue text]{color=#48bbff}
+:color[Red text]{color=red} testing :color[Blue text]{color=#48bbff}
 
 :button[My button]{https://google.com}
 
@@ -203,8 +222,6 @@ End`
                   <ListsToggle />
                   <CreateLink />
                   <InsertThematicBreak />
-                  <ColorButton />
-                  <ColorButton2 />
                 </>
               )
             })
