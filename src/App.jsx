@@ -60,18 +60,19 @@ const SimpleColorPicker = ({ onSelectColor }) => {
   );
 };
 
-// Simple implementation that just renders colored text
+// Simple implementation that renders colored text and allows editing
 const ColorDirectiveDescriptor = {
   name: 'color',
   testNode(node) {
     return node.name === 'color'
   },
   attributes: ['color'],
-  hasChildren: false,
+  hasChildren: true,
   Editor: (props) => {
     const [showColorPicker, setShowColorPicker] = useState(false);
     const colorPickerRef = useRef(null);
-    const currentColor = props.mdastNode.attributes.color;
+    const swatchRef = useRef(null);
+    const currentColor = props.mdastNode.attributes.color || 'red';
     
     // Close color picker when clicking outside
     useEffect(() => {
@@ -100,29 +101,47 @@ const ColorDirectiveDescriptor = {
       setShowColorPicker(false);
     };
     
+    // Create a color swatch button that appears next to the text
+    const ColorSwatch = () => (
+      <button
+        ref={swatchRef}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          console.log('Opening color picker for', props.mdastNode);
+          setShowColorPicker(true);
+        }}
+        style={{
+          width: '16px',
+          height: '16px',
+          backgroundColor: currentColor,
+          border: '1px solid #ccc',
+          borderRadius: '3px',
+          cursor: 'pointer',
+          padding: 0,
+          marginLeft: '4px',
+          verticalAlign: 'middle',
+          display: 'inline-block',
+          position: 'relative'
+        }}
+        title="Change color"
+      />
+    );
+    
     return (
-      <div style={{ position: 'relative', display: 'inline-block' }}>
-        <span
-          style={{ 
-            color: currentColor,
-            borderBottom: '1px dashed #ccc',
-            cursor: 'pointer'
-          }}
-          onClick={() => {
-            console.log('Opening color picker for', props.mdastNode);
-            setShowColorPicker(true);
-          }}
-        >
-          {props.mdastNode.children[0].value}
+      <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+        <span style={{ color: currentColor }}>
+          <GenericDirectiveEditor {...props} />
         </span>
+        <ColorSwatch />
         
         {showColorPicker && (
           <div 
             ref={colorPickerRef}
             style={{ 
-              position: 'absolute', 
-              top: '100%', 
-              left: '0', 
+              position: 'absolute',
+              top: '100%',
+              left: '0',
               zIndex: 100,
               marginTop: '5px'
             }}
@@ -130,7 +149,7 @@ const ColorDirectiveDescriptor = {
             <SimpleColorPicker onSelectColor={handleColorChange} />
           </div>
         )}
-      </div>
+      </span>
     )
   }
 }
@@ -144,6 +163,70 @@ const ButtonDirectiveDescriptor = {
   hasChildren: true,
   Editor: GenericDirectiveEditor
 }
+
+// Toolbar button for inserting colored text
+const ColorButton = () => {
+  const insertDirective = usePublisher(insertDirective$)
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const colorPickerRef = useRef(null);
+
+  // Close color picker when clicking outside
+  useEffect(() => {
+    if (!showColorPicker) return;
+    
+    const handleClickOutside = (event) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(event.target)) {
+        setShowColorPicker(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showColorPicker]);
+
+  const handleColorSelect = (color) => {
+    console.log('Color selected for new text:', color);
+    
+    insertDirective({
+      name: 'color',
+      type: 'textDirective',
+      attributes: { color },
+      children: [{ type: 'text', value: 'Colored text' }]
+    });
+    
+    setShowColorPicker(false);
+  };
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <Button
+        onClick={() => {
+          console.log('Color button clicked');
+          setShowColorPicker(!showColorPicker);
+        }}
+      >
+        Color
+      </Button>
+      
+      {showColorPicker && (
+        <div 
+          ref={colorPickerRef}
+          style={{ 
+            position: 'absolute', 
+            top: '100%', 
+            left: '0', 
+            zIndex: 100,
+            marginTop: '5px'
+          }}
+        >
+          <SimpleColorPicker onSelectColor={handleColorSelect} />
+        </div>
+      )}
+    </div>
+  );
+};
 
 function App() {
   const initialContent = `# Heading 1
@@ -222,6 +305,7 @@ End`
                   <ListsToggle />
                   <CreateLink />
                   <InsertThematicBreak />
+                  <ColorButton />
                 </>
               )
             })
